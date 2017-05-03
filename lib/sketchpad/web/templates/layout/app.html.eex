@@ -19,7 +19,10 @@
       <main role="main">
         <%= render @view_module, @view_template, assigns %>
       </main>
-
+    <script>
+      window.userToken = "<%= assigns[:user_token] %>"
+      window.userId = "<%= assigns[:user_id] %>"
+    </script>
     </div> <!-- /container -->
     <script src="<%= static_path(@conn, "/js/app.js") %>"></script>
   </body>
