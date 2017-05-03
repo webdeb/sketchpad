@@ -9,6 +9,7 @@ defmodule Sketchpad.Application do
     # Define workers and child supervisors to be supervised
     children = [
       supervisor(Sketchpad.Web.Endpoint, []),
+      supervisor(Sketchpad.Web.Presence, []),
       worker(Sketchpad.Pad, ["lobby"])
     ]
 
