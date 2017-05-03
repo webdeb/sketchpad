@@ -49,6 +49,7 @@ const App = {
     this.pad = new Sketchpad(this.el, this.userId)
     this.clearButton = document.getElementById('clear-button')
     this.exportButton = document.getElementById('export-button')
+    this.userContainer = document.getElementById('users');
 
     this.clearButton.onmouseup = () => {
       this.pad.clear();
@@ -59,9 +60,33 @@ const App = {
   },
 
   initSocket(token) {
+    this.presences = {}
     this.socket = new Socket("/socket", { params: { token } })
     this.socket.connect()
     this.padChannel = this.socket.channel("pad:lobby")
+
+    const onJoin = (user_id, current, newPresence) => {
+      if (!current) console.log(`${user_id} has joined`)
+      else console.log(`${user_id} has opened a new tab`)
+    }
+
+    const onLeave = (user_id, current, leftPresence) => {
+      if (current.metas.length === 0) {
+        console.log(`${user_id} has left`)
+      } else {
+        console.log(`${user_id} has closed a tab`)
+      }
+    }
+
+    this.padChannel.on("presence_state", state => {
+      this.presences = Presence.syncState(this.presences, state, onJoin, onLeave)
+      this.renderUsers(this.users, this.presences)
+    })
+
+    this.padChannel.on("presence_diff", diff => {
+      this.presences = Presence.syncDiff(this.presences, diff, onJoin, onLeave)
+      this.renderUsers(this.users, this.presences)
+    })
 
     this.padChannel.join()
       .receive("ok", res => console.log(res))
@@ -74,6 +99,20 @@ const App = {
     this.padChannel.on("clear", () => {
       this.pad.clear();
     })
+  },
+
+  renderUsers(a, presences) {
+    const users = Presence.list(presences, (user_id, { metas: [first, ...rest]}) => {
+      console.log(first, rest);
+
+      return {
+        id: user_id,
+        count: rest.length + 1
+      };
+    })
+    this.userContainer.innerHTML = users.map(u => (
+      `<div>${u.id} (${u.count})</div>`
+    ))
   }
 }
 
