@@ -6,6 +6,11 @@ defmodule Sketchpad.Application do
   def start(_type, _args) do
     import Supervisor.Spec
 
+    :ets.new(:cache, [:set,
+                      :public,
+                      :named_table,
+                      read_concurrency: true])
+
     # Define workers and child supervisors to be supervised
     children = [
       supervisor(Sketchpad.Web.Endpoint, []),

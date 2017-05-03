@@ -32,17 +32,26 @@ defmodule Sketchpad.Pad do
 
 
   def init([pad_id]) do
-    schedule_persist()
-    {:ok, %{users: %{}, pad_id: pad_id}}
+    schedule_png_outsource()
+    {:ok, %{users: %{},
+            pending_clear_user_ids: [],
+            clear_timer: nil,
+            pad_id: pad_id}}
   end
 
-  defp schedule_persist do
-    Process.send_after(self(), :persist, 10_000)
+  defp schedule_png_outsource do
+    Process.send_after(self(), :png_outsource, 3000)
   end
 
-  def handle_info(:persist, state) do
-    IO.puts (">> PERSISTING #{state.pad_id}")
-    schedule_persist()
+  def handle_info(:png_outsource, state) do
+    case Sketchpad.Web.Presence.list("pad:#{state.pad_id}") do
+      users when users == %{} -> :noop
+      users ->
+        {user_id, %{metas: [%{phx_ref: ref} | _]}} = Enum.random(users)
+        PadChannel.broadcast_png_outsource(state.pad_id, ref)
+    end
+
+    schedule_png_outsource()
     {:noreply, state}
   end
 
@@ -64,5 +73,27 @@ defmodule Sketchpad.Pad do
   def handle_call(:clear, _from, state) do
     {:reply, :ok, %{state | users: %{}}}
   end
+
+  def img_to_ascii(base64, pad_id) do
+
+    with {:ok, decoded_img} <- Base.decode64(base64),
+      {:ok, path} <- Briefly.create(),
+      {:ok, jpg_path} <- Briefly.create(),
+      :ok <- File.write(path, decoded_img),
+      args = ["-background", "white", "-flatten", path, "jpg:" <> jpg_path],
+      {"", 0} <- System.cmd("convert", args),
+      {ascii, 0} <- System.cmd("jp2a", ["-i", jpg_path]) do
+        :ets.insert(:pad_cache, {pad_id, base64})
+        ascii
+      else
+        _ -> :error
+      end
+  end
+
+  def fetch_png(pad_id) do
+    :ets.lookup_element(:pad_cache, pad_id, 2)
+  end
+
+  defp table_name(pad_id), do: :pad_cache
 
 end

@@ -8,6 +8,9 @@ const App = {
     this.initPad("sketchpad")
     this.initSocket(token)
     this.initChat(token)
+    document.getElementById('export-button').addEventListener('click', () => 
+      window.open(this.pad.getImageURL())
+    )
   },
 
   initChat() {
@@ -63,7 +66,7 @@ const App = {
     this.presences = {}
     this.socket = new Socket("/socket", { params: { token } })
     this.socket.connect()
-    this.padChannel = this.socket.channel("pad:lobby")
+    this.padChannel = this.socket.channel("pad:lobby", { user_agent: navigator.userAgent, enteredAt: new Date().toDateString() })
 
     const onJoin = (user_id, current, newPresence) => {
       if (!current) console.log(`${user_id} has joined`)
@@ -99,6 +102,10 @@ const App = {
     this.padChannel.on("clear", () => {
       this.pad.clear();
     })
+
+    this.padChannel.on("generate_png", () => {
+      this.padChannel.push("png", { img: this.pad.getImageURL() })
+    })
   },
 
   renderUsers(a, presences) {
@@ -107,9 +114,13 @@ const App = {
 
       return {
         id: user_id,
-        count: rest.length + 1
+        count: rest.length + 1,
+        meta: first.meta
       };
     })
+
+    console.log(users)
+
     this.userContainer.innerHTML = users.map(u => (
       `<div>${u.id} (${u.count})</div>`
     ))
